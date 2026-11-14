@@ -155,7 +155,8 @@ Référence (8 caractères) et code (6 chiffres) : créez un retrait sans carte 
 
 ## Intelligence artificielle
 
-Les deux modèles tournent **en local** : aucune donnée ne quitte la machine. Si l'un d'eux est absent ou en panne,
+L'IA comportementale tourne **en local**. RL SOLUTION utilise un modèle open source **hébergé** (Groq) : seuls le
+message déjà masqué du client et des fiches publiques lui sont envoyés, en HTTPS. Si l'un d'eux est absent ou en panne,
 la banque continue de fonctionner sans lui (règles seules, réponses par mots-clés).
 
 ### IA comportementale (moteur de risque)
@@ -382,9 +383,9 @@ make lint           # ruff
 - Erreurs au format RFC 9457 sans trace technique ; `TrustedHostMiddleware` ; CSP stricte sur l'API et sur la SPA de production.
 - Authentification de la phase 4 : voir le tableau ci-dessus. Caddy n'approuve aucun `X-Forwarded-For` fourni par le client (l'IP vue par l'API ne peut pas être usurpée pour contourner la limitation).
 - Données sensibles affichées à la demande et tracées : RIB, numéro complet et CVV de carte (masquage automatique), fiche bénéficiaire.
-- IA locale : aucun appel à un service externe ; modèle comportemental vérifié par empreinte ; LLM sans outil, alimenté par des messages masqués.
-- Conteneurs : `no-new-privileges` partout, capacités Linux supprimées sauf pour la base et le cache, Caddy exposé uniquement sur `127.0.0.1`.
-- Documentation et polices servies localement : la démo fonctionne hors ligne (une fois les modèles téléchargés).
+- IA : modèle comportemental local, vérifié par empreinte ; LLM hébergé sans outil, alimenté par des messages masqués et des fiches publiques uniquement, clé API envoyée seulement en HTTPS.
+- Conteneurs : `no-new-privileges` partout, capacités Linux supprimées sauf pour la base et le cache, Caddy exposé uniquement sur la boucle locale (`127.0.0.1` et `::1`).
+- Documentation et polices servies localement : la démo fonctionne hors ligne, sauf les réponses rédigées de RL SOLUTION (repli sur les fiches).
 
 ## Dépannage
 
