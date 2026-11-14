@@ -33,3 +33,4 @@ ai/datasets/*
 .vscode/*
 !.vscode/extensions.json
 *.log
+.neon
