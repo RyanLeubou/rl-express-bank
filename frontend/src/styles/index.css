@@ -1,0 +1,35 @@
+@import "tailwindcss";
+
+/*
+  Jetons de marque RL EXPRESS BANK.
+  Ancrage : Douala, l'estuaire du Wouri, la lagune. Emblème : trident doré. Encre profonde pour l'autorité bancaire,
+  vert lagune pour l'action, safran pour l'attention, rouge latérite réservé au risque.
+*/
+@theme {
+  --font-sans: "Hanken Grotesk Variable", "Segoe UI", system-ui, sans-serif;
+
+  --color-ink: #0f2536;        /* Encre Wouri : texte, marque */
+  --color-ink-soft: #4a5f6e;   /* texte secondaire */
+  --color-mist: #eef3f4;       /* Brume : fond */
+  --color-paper: #ffffff;      /* surfaces */
+  --color-rule: #d5dfe2;       /* filets */
+  --color-lagoon: #0e7c74;     /* Lagune : action principale */
+  --color-lagoon-deep: #0a5f59;
+  --color-saffron: #b45309;    /* attention, état dégradé (ambre, distinct de l'or de marque) */
+  --color-laterite: #b42318;   /* risque, indisponibilité */
+  --color-ok: #1b7f4c;
+  --color-gold: #d9a521;      /* Or du trident : identité de marque uniquement, jamais un état */
+  --color-gold-deep: #8f6912;
+}
+
+@layer base {
+  html { font-family: var(--font-sans); color: var(--color-ink); background: var(--color-mist); }
+  body { margin: 0; -webkit-font-smoothing: antialiased; }
+  /* Montants et mesures : chiffres tabulaires pour l'alignement */
+  .tabular { font-variant-numeric: tabular-nums; }
+  :focus-visible { outline: 2px solid var(--color-lagoon); outline-offset: 2px; border-radius: 4px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}

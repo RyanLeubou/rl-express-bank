@@ -1,0 +1,28 @@
+[project]
+name = "rl-express-bank-backend"
+version = "0.2.0"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "S", "UP"]
+ignore = ["S101"]  # assert autorisé dans les tests
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S105", "S106", "S608"]  # faux secrets et noms de tables paramétrés dans les tests
+# Noms d'énumérations (FORCE_PASSWORD_RESET…) pris à tort pour des secrets
+"app/models/enums.py" = ["S105"]
+"app/events/catalog.py" = ["S105"]
+"migrations/versions/*" = ["E501"]  # DDL généré, lignes longues tolérées
+# Générateur pseudo-aléatoire déterministe VOULU pour des données de démonstration reproductibles
+"app/seed/*" = ["S311"]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Header", "app.security.auth.deps.require_permission"]

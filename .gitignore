@@ -1,0 +1,35 @@
+# ---- Secrets (jamais versionnés) ----
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+caddy-root.crt
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+
+# ---- Node ----
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# ---- IA : jeux de données et modèles générés ----
+ai/datasets/*
+!ai/datasets/.gitkeep
+
+# ---- Divers ----
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.log

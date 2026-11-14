@@ -1,0 +1,218 @@
+# =====================================================================
+# RL EXPRESS BANK — orchestration locale
+#
+# Profils :
+#   core          caddy, frontend, api, worker, postgres, valkey   (phase 2)
+#   tools         mailpit                                          (phase 2)
+#   siem          wazuh manager / indexer / dashboard              (phase 14)
+#   observability grafana                                          (phase 15)
+# Les profils actifs sont définis par COMPOSE_PROFILES dans .env.
+# =====================================================================
+name: ${COMPOSE_PROJECT_NAME:-rlbank}
+
+x-backend-env: &backend-env
+  APP_ENV: ${APP_ENV}
+  APP_NAME: ${APP_NAME}
+  APP_VERSION: ${APP_VERSION}
+  LOG_LEVEL: ${LOG_LEVEL}
+  LAB_MODE: ${LAB_MODE}
+  PUBLIC_BASE_URL: ${PUBLIC_BASE_URL}
+  ALLOWED_HOSTS: ${ALLOWED_HOSTS}
+  CORS_ORIGINS: ${CORS_ORIGINS:-}
+  DOCS_ENABLED: ${DOCS_ENABLED}
+  TIMEZONE: ${TIMEZONE}
+  POSTGRES_HOST: ${POSTGRES_HOST}
+  POSTGRES_PORT: ${POSTGRES_PORT}
+  POSTGRES_DB: ${POSTGRES_DB}
+  RLBANK_OWNER_USER: ${RLBANK_OWNER_USER}
+  RLBANK_OWNER_PASSWORD: ${RLBANK_OWNER_PASSWORD}
+  RLBANK_APP_USER: ${RLBANK_APP_USER}
+  RLBANK_APP_PASSWORD: ${RLBANK_APP_PASSWORD}
+  VALKEY_HOST: ${VALKEY_HOST}
+  VALKEY_PORT: ${VALKEY_PORT}
+  VALKEY_PASSWORD: ${VALKEY_PASSWORD}
+  APP_SECRET_KEY: ${APP_SECRET_KEY}
+  DATA_ENCRYPTION_KEY: ${DATA_ENCRYPTION_KEY}
+  CARDLESS_HMAC_KEY: ${CARDLESS_HMAC_KEY}
+  LAB_CONTEXT_HMAC_KEY: ${LAB_CONTEXT_HMAC_KEY}
+  WAZUH_WEBHOOK_SECRET: ${WAZUH_WEBHOOK_SECRET}
+  JWT_PRIVATE_KEY_PATH: ${JWT_PRIVATE_KEY_PATH}
+  JWT_PUBLIC_KEY_PATH: ${JWT_PUBLIC_KEY_PATH}
+  JWT_ACCESS_TTL_SECONDS: ${JWT_ACCESS_TTL_SECONDS}
+  SMTP_HOST: ${SMTP_HOST}
+  SMTP_PORT: ${SMTP_PORT}
+  SEED_DEMO_DATA: ${SEED_DEMO_DATA:-false}
+  # LLM de RL SOLUTION, hébergé (Groq par défaut) : l'API le joint via le réseau edge, qui a accès à Internet
+  LLM_BASE_URL: ${LLM_BASE_URL:-https://api.groq.com/openai/v1}
+  LLM_API_KEY: ${LLM_API_KEY:-}
+  LLM_MODEL: ${LLM_MODEL:-openai/gpt-oss-120b}
+  LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-30}
+
+services:
+  # ------------------------------------------------------------------
+  caddy:
+    image: caddy:2-alpine
+    profiles: ["core"]
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    # Boucle locale IPv4 ET IPv6 : Safari résout souvent *.localhost en ::1 ; sans la ligne IPv6, « impossible de se
+    # connecter au serveur ». Rien n'est exposé au réseau local.
+    ports:
+      - "127.0.0.1:80:80"
+      - "127.0.0.1:443:443"
+      - "[::1]:80:80"
+      - "[::1]:443:443"
+    volumes:
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+      frontend:
+        condition: service_started
+    networks: [edge]
+
+  # ------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      target: ${FRONTEND_TARGET:-dev}
+    profiles: ["core"]
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    environment:
+      VITE_IN_DOCKER: "1"
+    volumes:
+      # Rechargement à chaud en dev ; node_modules reste celui de l'image
+      - ./frontend:/app
+      - /app/node_modules
+    networks: [edge]
+
+  # ------------------------------------------------------------------
+  api:
+    build:
+      context: ./backend
+      target: dev
+    profiles: ["core"]
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    environment:
+      <<: *backend-env
+      UVICORN_RELOAD: "true"
+    volumes:
+      - ./backend:/app
+      - jwt_keys:/app/secrets
+      - ai_models:/app/ai-models
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/v1/health/live', timeout=3).status == 200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    networks: [edge, backend]
+
+  # ------------------------------------------------------------------
+  worker:
+    build:
+      context: ./backend
+      target: dev
+    profiles: ["core"]
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    command: ["python", "-m", "app.workers.main"]
+    environment:
+      <<: *backend-env
+    volumes:
+      - ./backend:/app
+      - jwt_keys:/app/secrets:ro
+    depends_on:
+      api:
+        condition: service_healthy   # les migrations sont appliquées par l'API au démarrage
+    networks: [backend]
+
+  # ------------------------------------------------------------------
+  postgres:
+    image: pgvector/pgvector:pg16
+    profiles: ["core"]
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+      RLBANK_OWNER_USER: ${RLBANK_OWNER_USER}
+      RLBANK_OWNER_PASSWORD: ${RLBANK_OWNER_PASSWORD}
+      RLBANK_APP_USER: ${RLBANK_APP_USER}
+      RLBANK_APP_PASSWORD: ${RLBANK_APP_PASSWORD}
+      TZ: UTC
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [backend]
+
+  # ------------------------------------------------------------------
+  valkey:
+    image: valkey/valkey:8-alpine
+    profiles: ["core"]
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    command: ["valkey-server", "--requirepass", "${VALKEY_PASSWORD}", "--appendonly", "yes", "--maxmemory", "128mb", "--maxmemory-policy", "noeviction"]
+    environment:
+      VALKEYCLI_AUTH: ${VALKEY_PASSWORD}
+      REDISCLI_AUTH: ${VALKEY_PASSWORD}
+    volumes:
+      - valkey_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "valkey-cli ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [backend]
+
+  # ------------------------------------------------------------------
+  mailpit:
+    image: axllent/mailpit:latest
+    profiles: ["tools"]
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    ports:
+      - "127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025"
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: "true"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "true"
+    networks: [backend, edge]
+
+networks:
+  # Réseau exposé via Caddy
+  edge:
+  # Réseau interne : aucune sortie vers l'extérieur, aucun port publié
+  backend:
+    internal: true
+
+volumes:
+  caddy_data:
+  caddy_config:
+  postgres_data:
+  valkey_data:
+  # Clés de signature JWT : générées au premier démarrage de l'API, jamais sur l'hôte
+  jwt_keys:
+  # Modèle d'IA comportementale entraîné (make ai-train)
+  ai_models:

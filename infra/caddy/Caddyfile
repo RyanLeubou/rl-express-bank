@@ -1,0 +1,44 @@
+# =====================================================================
+# RL EXPRESS BANK — point d'entrée unique (reverse proxy + TLS local)
+# https://bank.localhost  (et https://localhost en secours)
+# Certificats émis par l'autorité locale de Caddy : voir README pour la faire approuver.
+# =====================================================================
+{
+	local_certs
+	admin off
+	# Aucun proxy amont n'est approuvé : Caddy ignore tout X-Forwarded-For fourni par le client
+	# et transmet à l'API l'adresse réellement vue (anti-usurpation d'IP pour la limitation de débit).
+}
+
+bank.localhost, localhost {
+	encode zstd gzip
+
+	# En-têtes communs (la CSP stricte est posée par l'API et par le build frontend de production)
+	header {
+		-Server
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+		Cross-Origin-Opener-Policy "same-origin"
+	}
+
+	# Limite de taille des requêtes vers l'API (défense contre les abus)
+	handle /api/* {
+		request_body {
+			max_size 1MB
+		}
+		reverse_proxy api:8000
+	}
+
+	# Tout le reste : SPA React (serveur Vite en dev, build statique en prod)
+	handle {
+		reverse_proxy frontend:5173
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}
