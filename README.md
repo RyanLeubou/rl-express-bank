@@ -297,6 +297,24 @@ section `IA` de `.env.example` (`LLM_*`, avec votre clé Groq), retirez `assista
 `docker compose up -d --build --remove-orphans` ; l'API applique la migration qui supprime l'ancienne table vectorielle.
 L'ancien volume de modèles peut être supprimé : `docker volume rm rlbank_ollama_data`.
 
+## Mettre en ligne (instance publique)
+
+Testé sur une machine virtuelle Linux ARM « Always Free » d'Oracle Cloud (Ubuntu, 2 cœurs, 12 Go). Toute VM Linux
+avec Docker convient.
+
+1. Ouvrez les ports 80 et 443 : règles d'entrée du réseau de l'hébergeur **et** pare-feu de la VM (les images Ubuntu
+   d'Oracle bloquent tout sauf SSH via `iptables`).
+2. Nom de domaine : le vôtre, ou un nom gratuit qui pointe vers l'adresse IP, par exemple `203-0-113-10.sslip.io`.
+3. Sur la VM : installez Docker, clonez le dépôt, `python3 scripts/generate_env.py`, puis dans `.env` :
+   `COMPOSE_PROFILES=core`, `APP_ENV=demo`, `FRONTEND_TARGET=prod`, `SEED_DEMO_DATA=false`,
+   `SITE_DOMAIN=<domaine>`, `PUBLIC_BASE_URL=https://<domaine>`, `ALLOWED_HOSTS=<domaine>,localhost,127.0.0.1,api`
+   et, si vous le souhaitez, `LLM_API_KEY`.
+4. `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build`
+
+Caddy obtient seul un certificat Let's Encrypt pour le domaine (`infra/caddy/Caddyfile.public`). L'interface est
+précompilée, l'API tourne sans rechargement ni code monté, et Mailpit n'est pas démarré. Un bandeau rappelle sur
+toutes les pages que la banque est fictive ; les moteurs de recherche ne l'indexent pas (`X-Robots-Tag`).
+
 ## HTTPS local
 
 Caddy signe les certificats avec sa propre autorité locale. Pour éviter l'avertissement du navigateur,

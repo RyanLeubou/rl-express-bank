@@ -1,0 +1,42 @@
+# =====================================================================
+# RL EXPRESS BANK — instance publique (docker-compose.prod.yml)
+# Certificat Let's Encrypt obtenu et renouvelé automatiquement pour SITE_DOMAIN
+# (ex. 203-0-113-10.sslip.io : nom gratuit qui pointe vers l'adresse IP du serveur).
+# =====================================================================
+{
+	admin off
+	# Aucun proxy amont n'est approuvé : Caddy ignore tout X-Forwarded-For fourni par le client
+	# et transmet à l'API l'adresse réellement vue (anti-usurpation d'IP pour la limitation de débit).
+}
+
+{$SITE_DOMAIN} {
+	encode zstd gzip
+
+	header {
+		-Server
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+		Cross-Origin-Opener-Policy "same-origin"
+		# Pas d'indexation : démonstration pédagogique, pas un service bancaire
+		X-Robots-Tag "noindex, nofollow"
+	}
+
+	handle /api/* {
+		request_body {
+			max_size 1MB
+		}
+		reverse_proxy api:8000
+	}
+
+	handle {
+		reverse_proxy frontend:5173
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}

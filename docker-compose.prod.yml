@@ -1,0 +1,45 @@
+# =====================================================================
+# RL EXPRESS BANK — surcharge pour une instance publique (serveur Linux)
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# Différences avec le développement :
+#   - images de production : interface précompilée servie par Caddy, API sans rechargement ni code monté ;
+#   - Caddy écoute sur les ports publics 80 et 443 avec un certificat Let's Encrypt (SITE_DOMAIN) ;
+#   - Mailpit n'est pas démarré (COMPOSE_PROFILES=core dans .env).
+# =====================================================================
+services:
+  caddy:
+    ports: !override
+      - "80:80"
+      - "443:443"
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN:?SITE_DOMAIN requis (ex. 203-0-113-10.sslip.io)}
+    volumes: !override
+      - ./infra/caddy/Caddyfile.public:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+  frontend:
+    build:
+      context: ./frontend
+      target: prod
+    environment: !reset {}
+    volumes: !reset []
+
+  api:
+    build:
+      context: ./backend
+      target: runtime
+    environment:
+      UVICORN_RELOAD: "false"
+    volumes: !override
+      - jwt_keys:/app/secrets
+      - ai_models:/app/ai-models
+
+  worker:
+    build:
+      context: ./backend
+      target: runtime
+    volumes: !override
+      - jwt_keys:/app/secrets:ro
