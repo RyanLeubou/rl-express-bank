@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     # ---- Général ----
     app_env: Environment = "development"
     app_name: str = "RL EXPRESS BANK"
-    app_version: str = "0.2.0"
+    app_version: str = "0.2.1"
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     lab_mode: bool = False
     public_base_url: str = "https://bank.localhost"

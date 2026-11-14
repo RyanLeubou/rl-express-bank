@@ -4,7 +4,7 @@ from tests.conftest import down, ok
 def test_live_repond_sans_dependance(client):
     r = client.get("/api/v1/health/live")
     assert r.status_code == 200
-    assert r.json() == {"status": "ok", "service": "rl-express-bank-api", "version": "0.2.0"}
+    assert r.json() == {"status": "ok", "service": "rl-express-bank-api", "version": "0.2.1"}
 
 
 def test_ready_ok_quand_tout_repond(client):
