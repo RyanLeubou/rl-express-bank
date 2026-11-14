@@ -1,0 +1,60 @@
+# =====================================================================
+# RL EXPRESS BANK — Caddy dans l'image Render. Render termine le TLS et transmet en HTTP sur $PORT.
+# Seul le proxy de Render (adresses privées) est approuvé pour X-Forwarded-For ; l'API reçoit l'adresse
+# réelle du visiteur, jamais une valeur fournie par le client (limitation de débit non contournable).
+# =====================================================================
+{
+	admin off
+	auto_https off
+	servers {
+		trusted_proxies static private_ranges
+		client_ip_headers X-Forwarded-For
+	}
+}
+
+:{$PORT} {
+	encode zstd gzip
+
+	header {
+		-Server
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+		Cross-Origin-Opener-Policy "same-origin"
+		X-Robots-Tag "noindex, nofollow"
+	}
+
+	# Contrôle de santé de Render : interroge réellement l'API, avec un en-tête Host connu
+	handle /healthz {
+		rewrite * /api/v1/health/live
+		reverse_proxy 127.0.0.1:8000 {
+			header_up Host localhost
+		}
+	}
+
+	handle /api/* {
+		request_body {
+			max_size 1MB
+		}
+		reverse_proxy 127.0.0.1:8000 {
+			header_up X-Forwarded-For {client_ip}
+		}
+	}
+
+	# Interface précompilée (même CSP que l'image frontend de production)
+	handle {
+		root * /srv
+		header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+		@assets path /assets/*
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+		try_files {path} /index.html
+		file_server
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}

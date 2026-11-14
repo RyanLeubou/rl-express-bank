@@ -299,6 +299,27 @@ L'ancien volume de modèles peut être supprimé : `docker volume rm rlbank_olla
 
 ## Mettre en ligne (instance publique)
 
+### Render + Neon (gratuit, sans serveur à administrer)
+
+Un seul service web Render (offre gratuite) et une base PostgreSQL Neon (offre gratuite, sans limite de durée).
+
+| Élément | Détail |
+| --- | --- |
+| Image | `deploy/render/Dockerfile` : Caddy (interface précompilée + proxy `/api`), API, worker et Valkey dans un conteneur, pour garder la même origine (cookies `__Host-`, `SameSite=Strict`) |
+| Base | Neon : au démarrage, `deploy/render/start.py` crée ou met à jour les rôles séparés `rlbank_owner` (migrations) et `rlbank_app` (DML seul) à partir de l'URL du propriétaire Neon |
+| Secrets | Tous dérivés (HKDF-SHA256) de `RLBANK_MASTER_SECRET`, généré par Render : aucune clé à saisir ni à stocker |
+| Santé | `/healthz` interroge l'API ; le port ne s'ouvre qu'une fois l'API prête |
+| Limites | Le service s'endort après 15 min sans visite (réveil d'environ 1 min) ; les sessions sont perdues au redémarrage (clés JWT régénérées) ; quota Groq partagé entre les visiteurs |
+
+1. **Neon** (https://neon.tech) : créez un projet, région **AWS Europe Central (Frankfurt)**. Dans **Connect**,
+   désactivez **Connection pooling** et copiez l'URL de connexion (`postgresql://neondb_owner:…@ep-…/neondb?sslmode=require…`).
+2. **Render** (https://render.com) : **New > Blueprint**, choisissez ce dépôt. Render lit `render.yaml` et demande
+   `DATABASE_BOOTSTRAP_URL` (l'URL Neon) et `LLM_API_KEY` (facultatif), puis **Apply**.
+3. Ouvrez l'adresse `https://rl-express-bank-….onrender.com` et créez votre compte. Personnel : dans Render,
+   onglet **Shell** du service, `python -m app.seed.staff --role SUPER_ADMIN --email … --prenom … --nom …`.
+
+### Machine virtuelle Linux (Docker Compose)
+
 Testé sur une machine virtuelle Linux ARM « Always Free » d'Oracle Cloud (Ubuntu, 2 cœurs, 12 Go). Toute VM Linux
 avec Docker convient.
 

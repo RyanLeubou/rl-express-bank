@@ -45,6 +45,8 @@ class Settings(BaseSettings):
     postgres_host: str = "postgres"
     postgres_port: int = 5432
     postgres_db: str = "rlbank"
+    # Vide en local (réseau Docker privé) ; « require » pour une base hébergée (Neon impose TLS)
+    postgres_sslmode: Literal["", "disable", "prefer", "require", "verify-ca", "verify-full"] = ""
     rlbank_owner_user: str = "rlbank_owner"
     rlbank_owner_password: SecretStr = SecretStr("")
     rlbank_app_user: str = "rlbank_app"
@@ -135,6 +137,7 @@ class Settings(BaseSettings):
         return (
             f"postgresql+psycopg://{quote(user)}:{quote(password.get_secret_value(), safe='')}"
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
+            + (f"?sslmode={self.postgres_sslmode}" if self.postgres_sslmode else "")
         )
 
     @property

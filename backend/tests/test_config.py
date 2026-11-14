@@ -38,3 +38,9 @@ def test_listes_depuis_variables_csv(monkeypatch):
     monkeypatch.setenv("ALLOWED_HOSTS", "bank.localhost, localhost")
     monkeypatch.setenv("APP_ENV", "test")
     assert Settings().allowed_hosts == ["bank.localhost", "localhost"]
+
+
+def test_tls_exige_pour_une_base_hebergee():
+    s = Settings(**strong_env(postgres_sslmode="require"))
+    assert s.database_url.endswith("?sslmode=require") and s.migration_database_url.endswith("?sslmode=require")
+    assert "sslmode" not in Settings(**strong_env()).database_url          # local : réseau Docker privé

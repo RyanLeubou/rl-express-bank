@@ -1,0 +1,25 @@
+# =====================================================================
+# RL EXPRESS BANK — Blueprint Render (offre gratuite)
+# Render : New > Blueprint > ce dépôt. Deux valeurs à saisir : DATABASE_BOOTSTRAP_URL (Neon) et LLM_API_KEY.
+# Toutes les clés de l'application sont dérivées de RLBANK_MASTER_SECRET, généré par Render.
+# =====================================================================
+services:
+  - type: web
+    name: rl-express-bank
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./deploy/render/Dockerfile
+    dockerContext: .
+    healthCheckPath: /healthz
+    envVars:
+      - key: RLBANK_MASTER_SECRET
+        generateValue: true
+      - key: DATABASE_BOOTSTRAP_URL
+        sync: false
+      - key: LLM_API_KEY
+        sync: false
+      - key: LLM_MODEL
+        value: openai/gpt-oss-120b
+      - key: LAB_MODE
+        value: "true"
